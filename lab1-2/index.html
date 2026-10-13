@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='utf-8' />
+    <title>my First Map - UW Seattle </title>
+    <meta name='viewport' content='width=device-width, initial-scale=1' />
+
+    <!-- Load Mapbox CSS to display the map and its controls -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet">
+
+    <!-- Load the Mapbox GL JS library to create an interactive map -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
+    
+    <!-- Style the webpage and make the map fill the browser window -->
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+   </style>
+</head>
+<body>
+   <!-- Create the HTML container where the Mapbox map will appear -->
+   <div id='map'></div>
+   <script>
+      mapboxgl.accessToken = 'pk.eyJ1Ijoic3RhY3lzdGFjeWxpYW9saWFvIiwiYSI6ImNtdXgwamo1eTAxeHYyenB2ZHZhdHBsbmwifQ.t4MQ8iJzIEjCks2VOP5tww';
+      // Create a Mapbox map inside the HTML container with id="map"
+      const mymap = new mapboxgl.Map({
+             container: 'map',
+             //style: 'mapbox://styles/mapbox/standard', 
+             //projection: 'globe', 
+             center: [-122.305, 47.655], // Center on UW Seattle
+             zoom: 14 // Zoom in to show UW campus and surrounding streets
+
+          });
+      // a button to enter and exit fullscreen mode
+      mymap.addControl(new mapboxgl.FullscreenControl());
+
+      // zoom buttons and a compass for map navigation
+      mymap.addControl(new mapboxgl.NavigationControl());
+
+      // Apply Mapbox Standard style settings once the style loads
+      mymap.on('style.load', () => {
+
+         //Change map lighting to dusk
+         mymap.setConfigProperty('basemap', 'lightPreset', 'dusk');
+
+         //Hide point of interest icons and labels
+         mymap.setConfigProperty('basemap', 'showPointOfInterestLabels', false);
+
+         //Change the basemap to a monochrome color theme
+         mymap.setConfigProperty('basemap', 'theme', 'monochrome');
+
+         //Keep road labels visible for navigation
+         mymap.setConfigProperty('basemap', 'showRoadLabels', true);
+      });
+      /*
+         Explanation and Justification
+
+         1. Monochrome theme:
+         I changed the theme to monochrome to give the map a
+         simpler appearance and make the UW campus easier to view.
+         This would also be useful when adding more data to the map.
+
+         
+         2. Road labels:
+         I set showRoadLabels to true so street names remain visible
+         on the map. This makes it easier to identify roads around
+         UW Seattle and understand how different areas connect.
+         I think this would be useful for students or visitors who
+         are unfamiliar with the campus.
+      */
+</script>
+</body>
+</html>
