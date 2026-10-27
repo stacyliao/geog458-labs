@@ -1,0 +1,346 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lab 3: Seattle Elevation & Hiking Trails</title>
+
+  <!-- MapLibre GL JS CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.15.0/dist/maplibre-gl.css">
+
+  <style>
+    body {
+      margin: 0;
+      font: 14px/1.5 Arial, sans-serif;
+      color: #25382e;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+    }
+
+    #panel {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      padding: 16px;
+      width: 270px;
+      max-width: calc(100% - 100px);
+      background: white;
+      max-height: calc(100% - 80px);
+      overflow: auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+      z-index: 1;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 19px;
+    }
+
+    p {
+      margin: 8px 0;
+    }
+
+    #surface-control,
+    #trail-control {
+      margin: 8px 0;
+    }
+
+    
+    .ramp {
+    height: 14px;
+    border-radius: 3px;
+    background: linear-gradient(
+        to right,
+        #DCE9C5 0%,
+        #98BC81 25%,
+        #DDBD82 50%,
+        #A17D64 75%,
+        #F3F0E8 100%
+    );
+    }
+
+    .values {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    margin-top: 4px;
+    }
+
+    .trail-key {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 8px 0;
+    }
+
+    .trail-line {
+    width: 32px;
+    height: 0;
+    border-top: 3px solid #813C4D;
+    }
+
+    .note {
+    font-size: 12px;
+    color: #596b60;
+    }
+
+
+    .maplibregl-popup-content {
+      white-space: pre-line;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Map container -->
+  <div id="map"></div>
+
+  <!-- Information panel -->
+  <section id="panel">
+
+    <h1>Seattle & Cascade Foothills - Elevation and Hiking Trails</h1>
+
+    <p>Seattle & Cascade Foothills | USGS 3DEP & King County GIS</p>
+
+    <p id="status">Loading hiking map...</p>
+
+    <!-- Elevation visibility control -->
+    <div id="surface-control" hidden>
+      <label>
+        <input id="show-surface" type="checkbox" checked>
+        Show elevation
+      </label>
+    </div>
+
+    <!-- Hiking trails visibility control -->
+    <div id="trail-control" hidden>
+      <label>
+        <input id="show-trails" type="checkbox" checked>
+        Show hiking trails
+      </label>
+    </div>
+
+    <!-- Elevation legend -->
+    
+    <div id="legend" hidden>
+    <p><strong>Elevation (meters)</strong></p>
+
+    <div class="ramp"></div>
+
+    <div class="values">
+        <span>-13</span>
+        <span>1,179.5</span>
+        <span>2,372</span>
+    </div>
+
+    <p>Green represents lower elevations, transitioning to tan and brown at higher elevations. The lightest shade marks the highest peaks.</p>
+
+    <p><strong>Hiking trails</strong></p>
+    <div class="trail-key">
+        <span class="trail-line"></span>
+        <span>King County trails</span>
+    </div>
+
+    <p class="note">
+        Elevation: USGS 3DEP<br>
+        Trails: King County GIS
+    </p>
+    </div>
+
+
+  </section>
+
+  <!-- MapLibre GL JS -->
+  <script type="module">
+
+    import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.15.0/dist/maplibre-gl.mjs';
+
+    // Create 
+    const map = new maplibregl.Map({
+      container: 'map',
+
+      style: {
+        version: 8,
+        sources: {},
+        layers: [{
+          id: 'background',
+          type: 'background',
+          paint: {
+            'background-color': '#F4F1E8'
+          }
+        }]
+      },
+
+      // study area
+        center: [-122.02, 47.50],
+        zoom: 9.5,
+        minZoom: 8,
+        maxZoom: 12
+    });
+
+    // Navigation controls
+    map.addControl(new maplibregl.NavigationControl());
+
+    // Metric scale bar
+    map.addControl(new maplibregl.ScaleControl({
+      unit: 'metric'
+    }));
+
+    // Error handling
+    map.on('error', (event) => {
+      document.getElementById('status').textContent =
+        'Load error: check file paths and browser Console.';
+
+      console.error(event.error);
+    });
+
+    map.on('load', () => {
+
+      // Step 1: Mapbox hiking basemap
+
+      map.addSource('basemap-tiles', {
+        type: 'raster',
+        tiles: [
+          'assets/mapbox-independent/{z}/{x}/{y}.png'
+        ],
+        tileSize: 256,
+        scheme: 'xyz',
+        minzoom: 8,
+        maxzoom: 12,
+        attribution: '© Mapbox © OpenStreetMap'
+      });
+
+      map.addLayer({
+        id: 'basemap',
+        type: 'raster',
+        source: 'basemap-tiles',
+        paint: {
+          'raster-opacity': 1,
+          'raster-fade-duration': 0
+        }
+      });
+
+      // Step 2: Elevation raster
+
+      map.addSource('elevation-tiles', {
+        type: 'raster',
+        tiles: [
+          'assets/elevation/{z}/{x}/{y}.png'
+        ],
+        tileSize: 256,
+        scheme: 'xyz',
+        minzoom: 8,
+        maxzoom: 12,
+        attribution: 'Elevation: USGS 3DEP'
+      });
+
+      map.addLayer({
+        id: 'elevation-surface',
+        type: 'raster',
+        source: 'elevation-tiles',
+        paint: {
+          'raster-opacity': 0.7,
+          'raster-fade-duration': 0
+        }
+      });
+
+      // Step 3: Hiking trails GeoJSON
+
+      map.addSource('trail-data', {
+        type: 'geojson',
+        data: 'data/hiking_trail.geojson'
+      });
+
+      map.addLayer({
+        id: 'hiking-trails',
+        type: 'line',
+        source: 'trail-data',
+        paint: {
+          'line-color': '#813C4D',
+          'line-width': [
+            'interpolate', ['linear'], ['zoom'],
+            8, 1,
+            10, 1.5,
+            12, 2.5
+            ],
+          'line-opacity': 0.95
+        }
+      });
+
+      // Step 4: Hiking trail popups
+
+      map.on('click', 'hiking-trails', (event) => {
+
+        const feature = event.features[0];
+        const trail = feature.properties;
+
+        new maplibregl.Popup()
+          .setLngLat(event.lngLat)
+          .setText([
+            trail.Trail_Name || 'Unnamed Trail',
+            'Trail type: ' + (trail.Trail_Type || 'Not available'),
+            'Surface: ' + (trail.Surf_Type || 'Not available')
+          ].join('\n'))
+          .addTo(map);
+
+      });
+
+      // Pointer cursor over trails
+      map.on('mouseenter', 'hiking-trails', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+
+      map.on('mouseleave', 'hiking-trails', () => {
+        map.getCanvas().style.cursor = '';
+      });
+
+      // Step 5: Elevation toggle
+
+      document.getElementById('surface-control').hidden = false;
+
+      document.getElementById('show-surface')
+        .addEventListener('change', (event) => {
+
+          map.setLayoutProperty(
+            'elevation-surface',
+            'visibility',
+            event.target.checked ? 'visible' : 'none'
+          );
+
+          document.getElementById('legend').hidden =
+            !event.target.checked;
+
+        });
+
+      // Step 6: Hiking trails toggle
+
+      document.getElementById('trail-control').hidden = false;
+
+      document.getElementById('show-trails')
+        .addEventListener('change', (event) => {
+
+          map.setLayoutProperty(
+            'hiking-trails',
+            'visibility',
+            event.target.checked ? 'visible' : 'none'
+          );
+
+        });
+
+      document.getElementById('legend').hidden = false;
+
+      document.getElementById('status').textContent =
+        'Click a hiking trail to explore its details.';
+
+    });
+
+  </script>
+
+</body>
+</html>
