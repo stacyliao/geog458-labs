@@ -6,11 +6,9 @@
 
   <title>San Francisco Bay Vessel Movements — Lab 5 Flow Map</title>
 
-  <!-- Mapbox GL JS -->
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.32.0/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.32.0/mapbox-gl.js"></script>
 
-  <!-- deck.gl -->
   <script src="https://unpkg.com/deck.gl@^9.0.0/dist.min.js"></script>
 
   <style>
@@ -183,7 +181,6 @@
 
       let displayedTrips = trips;
 
-      // Animation state
       let playing = true;
 
       // Time range from AIS data
@@ -268,7 +265,6 @@
           ]
         });
 
-        // STEP 3C: Update the date/time display and slider
         updateTimeUI();
 
       }
@@ -385,11 +381,6 @@
       requestAnimationFrame(animate);
 
     }
-
-
-    // -----------------------------------------
-    // Initialize
-    // -----------------------------------------
 
     main().catch(error => {
 
