@@ -1,11 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Lab 5 — Millions of Data, Flow Map</title>
+  <title>San Francisco Bay Vessel Movements — Lab 5 Flow Map</title>
 
   <!-- Mapbox GL JS -->
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.32.0/mapbox-gl.css" rel="stylesheet">
@@ -84,6 +83,11 @@
       font-size: 12px;
       color: #c0cfdd;
     }
+
+    #time-display {
+      color: white;
+      font-weight: bold;
+    }
   </style>
 </head>
 
@@ -95,11 +99,12 @@
   <!-- Map control panel -->
   <div id="panel">
 
-    <h1>Millions of Data, Flow Map</h1>
+    <h1>San Francisco Bay Vessel Movements</h1>
 
     <p>
         Animated vessel movements in San Francisco Bay,
         California, from July 16–17, 2025 (UTC).
+        The clock below shows Seattle local time.
     </p>
 
     <p id="status" role="status">
@@ -116,13 +121,12 @@
       <option value="other">Other vessels</option>
     </select>
 
-    <!-- STEP 3A: Play/Stop button -->
-    <button
-      id="play-stop"
-      type="button"
-      aria-pressed="true">
-      Stop
-    </button>
+    <!-- STEP 3A: Playback controls -->
+    <button id="play-stop" type="button" aria-pressed="true">Stop</button>
+    <p>Data time: <time id="time-display">Loading date/time...</time></p>
+    <label for="time-slider">Data time (Seattle: PDT/PST)</label>
+    <input id="time-slider" type="range" min="0" max="1" value="0" step="1" disabled
+      style="display:block;width:100%;margin:8px 0;accent-color:#fd805d;">
 
   </div>
 
@@ -140,9 +144,6 @@
         center: [-122.43, 37.84],
         zoom: 9.7,
         pitch: 0
-        // center: [-122.42, 37.80],
-        // zoom: 10,
-        // pitch: 0
     });
 
     // Navigation controls
@@ -206,6 +207,37 @@
 
 
       // -----------------------------------------
+      // STEP 3B: Set up the Seattle date/time and slider
+      // -----------------------------------------
+
+      const metadataResponse = await fetch('./ais_trips_metadata.json');
+      if (!metadataResponse.ok) throw new Error('Could not load ais_trips_metadata.json.');
+      const metadata = await metadataResponse.json();
+      const timeOrigin = Date.parse(metadata.time_origin_utc);
+      if (!Number.isFinite(timeOrigin)) throw new Error('Invalid time_origin_utc in ais_trips_metadata.json.');
+      const timeDisplay = document.getElementById('time-display');
+      const timeSlider = document.getElementById('time-slider');
+      timeSlider.min = String(startTime);
+      timeSlider.max = String(endTime);
+      timeSlider.disabled = false;
+
+      const timeFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Los_Angeles',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hourCycle: 'h23', timeZoneName: 'short'
+      });
+
+      function updateTimeUI() {
+        const date = new Date(timeOrigin + Math.floor(currentTime) * 1000);
+        timeDisplay.dateTime = date.toISOString();
+        timeDisplay.textContent = timeFormatter.format(date);
+        timeSlider.value = String(Math.floor(currentTime));
+        timeSlider.setAttribute('aria-valuetext', timeDisplay.textContent);
+      }
+
+
+      // -----------------------------------------
       // Draw animated vessel paths
       // -----------------------------------------
 
@@ -230,12 +262,14 @@
 
               currentTime: currentTime,
 
-              //trailLength: 3600
               trailLength: 5400
 
             })
           ]
         });
+
+        // STEP 3C: Update the date/time display and slider
+        updateTimeUI();
 
       }
 
@@ -290,24 +324,24 @@
 
 
       // -----------------------------------------
-      // STEP 3B: Play / Stop button logic
+      // STEP 3D: Play / Stop button and time slider
       // -----------------------------------------
 
-      const playStop =
-        document.getElementById('play-stop');
+      const playStop = document.getElementById('play-stop');
 
-      playStop.addEventListener('click', () => {
+      function setPlaying(value) {
+        playing = value;
+        previousFrame = null;
+        playStop.textContent = playing ? 'Stop' : 'Play';
+        playStop.setAttribute('aria-pressed', String(playing));
+      }
 
-        playing = !playing;
+      playStop.addEventListener('click', () => setPlaying(!playing));
 
-        playStop.textContent =
-          playing ? 'Stop' : 'Play';
-
-        playStop.setAttribute(
-          'aria-pressed',
-          String(playing)
-        );
-
+      timeSlider.addEventListener('input', () => {
+        setPlaying(false);
+        currentTime = Number(timeSlider.value);
+        draw();
       });
 
 
@@ -315,7 +349,7 @@
       // Animate vessel movements
       // -----------------------------------------
 
-      // Advance data time by 15 minutes
+      // Advance data time by 10 minutes
       // per real second.
 
       function animate(now) {
@@ -332,7 +366,6 @@
 
         if (playing) {
 
-          //currentTime += elapsed * 900;
           currentTime += elapsed * 600;
 
           // Restart animation at end
