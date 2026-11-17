@@ -39,6 +39,11 @@
     #legend h2 { margin: 0 0 6px; font-size: 13px; }
     .legend-row { display: flex; align-items: center; gap: 8px; }
     .swatch { display: inline-block; width: 14px; height: 14px; border: 1px solid #0002; }
+    #indicator-toggle { margin: 0 0 10px; padding: 0 0 8px; border: 0; border-bottom: 1px solid #0002; }
+    #indicator-toggle legend { padding: 0; font-weight: bold; margin-bottom: 4px; }
+    #indicator-toggle label { display: flex; align-items: center; gap: 6px; margin: 2px 0; cursor: pointer; }
+    #indicator-toggle input { width: auto; margin: 0; }
+    #legend-source { margin: 8px 0 0; max-width: 200px; color: #55606c; font-size: 11px; line-height: 1.4; }
     @media (max-width: 720px) {
       body { display: block; } #sidebar { height: auto; } #map-panel { height: 65vh; min-height: 400px; }
     }
@@ -58,18 +63,31 @@
     </div>
     <div aria-live="polite">
       <h2 id="placename">Washington</h2>
-      <p class="muted">Population in 2020 · <span id="selection-mode">All counties</span></p>
+      <!-- <p class="muted">Population in 2020 · <span id="selection-mode">All counties</span></p> -->
+      <!-- <p class="muted"><span id="map-note">Map colors show total population in 2020, not population density.</span> The data are historical; this dashboard is not a live monitoring feed.</p> -->
+        <p class="muted">Population in 2020 · <span id="selection-mode">All counties</span></p>
       <p id="county-count">Loading…</p>
     </div>
     <h2 style="font-size:17px">Population trend</h2>
     <div id="county-chart"></div>
     <p id="chart-note">The linked D3 graph will be connected in Step 4.</p>
     <p id="status" role="status">Loading map and WAcounties.geojson…</p>
-    <p class="muted">Map colors show total population in 2020, not population density. The data are historical; this dashboard is not a live monitoring feed.</p>
+    <!-- <p class="muted">Map colors show total population in 2020, not population density. The data are historical; this dashboard is not a live monitoring feed.</p> -->
+        <p class="muted"><span id="map-note">Map colors show total population in 2020, not population density.</span> The data are historical; this dashboard is not a live monitoring feed.</p>
   </aside>
   <main id="map-panel" aria-label="Washington county population map">
     <div id="map"></div>
-    <div id="legend"><h2>Population in 2020</h2></div>
+    <!-- <div id="legend"><h2>Population in 2020</h2></div> -->
+    <div id="legend">
+        <fieldset id="indicator-toggle">
+            <legend>Map indicator</legend>
+            <label><input type="radio" name="indicator" value="pop2020" checked> 2020 population</label>
+            <label><input type="radio" name="indicator" value="change"> % change, 2000–2020</label>
+        </fieldset>
+        <h2 id="legend-title">Population in 2020</h2>
+        <div id="legend-rows"></div>
+        <p id="legend-source"></p>
+    </div>
   </main>
   <script>
     mapboxgl.accessToken = 'pk.eyJ1Ijoic3RhY3lzdGFjeWxpYW9saWFvIiwiYSI6ImNtdXgwamo1eTAxeHYyenB2ZHZhdHBsbmwifQ.t4MQ8iJzIEjCks2VOP5tww';
@@ -95,20 +113,79 @@
           {min: 500000, color: '#8856a7', label: '500,000–999,999'},
           {min: 1000000, color: '#810f7c', label: '1,000,000 or more'}
         ];
-        const fillColor = ['step', ['get', 'POP2020'], classes[0].color];
-        classes.slice(1).forEach(group => fillColor.push(group.min, group.color));
+        // const fillColor = ['step', ['get', 'POP2020'], classes[0].color];
+        // classes.slice(1).forEach(group => fillColor.push(group.min, group.color));
+        // map.addSource('population', {type: 'geojson', data: data});
+        // map.addLayer({id: 'county-fill', type: 'fill', source: 'population',
+        //   paint: {'fill-color': fillColor, 'fill-opacity': 0.85}});
+
+        // NEW INDICATOR: percent population change, 2000–2020.
+        // Prepared from the existing POP2000 and POP2020 fields before the source is added.
+        counties.forEach(function(feature) {
+            const p = feature.properties;
+            p.PCT_CHANGE = (+p.POP2020 - +p.POP2000) / +p.POP2000 * 100;
+        });
+        const changeClasses = [
+            {min: -Infinity, color: '#b35806', label: 'Decline (below 0%)'},
+            {min: 0, color: '#c7e9c0', label: '0% to 9.9%'},
+            {min: 10, color: '#74c476', label: '10% to 24.9%'},
+            {min: 25, color: '#31a354', label: '25% to 49.9%'},
+            {min: 50, color: '#006d2c', label: '50% or more'}
+        ];
+        const SOURCE_TEXT = 'Source: WAcounties.geojson (Washington OFM April 1 population estimates).';
+        const indicators = {
+            pop2020: {property: 'POP2020', classes: classes,
+                title: 'Population in 2020 (people)',
+                note: 'Map colors show total population in 2020, not population density.',
+                source: SOURCE_TEXT},
+            change: {property: 'PCT_CHANGE', classes: changeClasses,
+                title: 'Population change, 2000–2020 (%)',
+                note: 'Map colors show percent population change from 2000 to 2020: (POP2020 − POP2000) ÷ POP2000 × 100.',
+                source: SOURCE_TEXT + ' % change calculated from POP2000 and POP2020.'}
+        };
+        function fillExpression(indicator) {
+            const expression = ['step', ['get', indicator.property], indicator.classes[0].color];
+            indicator.classes.slice(1).forEach(group => expression.push(group.min, group.color));
+            return expression;
+        }
+        function renderLegend(indicator) {
+            document.getElementById('legend-title').textContent = indicator.title;
+            document.getElementById('legend-source').textContent = indicator.source;
+            document.getElementById('map-note').textContent = indicator.note;
+            const legendRows = d3.select('#legend-rows').selectAll('.legend-row')
+                .data(indicator.classes)
+                .join(function(enter) {
+                const row = enter.append('div').attr('class', 'legend-row');
+                row.append('span').attr('class', 'swatch');
+                row.append('span').attr('class', 'legend-label');
+                return row;
+                });
+            legendRows.select('.swatch').style('background-color', d => d.color);
+            legendRows.select('.legend-label').text(d => d.label);
+        }
+
         map.addSource('population', {type: 'geojson', data: data});
         map.addLayer({id: 'county-fill', type: 'fill', source: 'population',
-          paint: {'fill-color': fillColor, 'fill-opacity': 0.85}});
+        paint: {'fill-color': fillExpression(indicators.pop2020), 'fill-opacity': 0.85}});
+
         map.addLayer({id: 'county-border', type: 'line', source: 'population',
           paint: {'line-color': '#4c5265', 'line-width': 0.8}});
         map.addLayer({id: 'county-focus', type: 'line', source: 'population',
           filter: ['==', ['get', 'OBJECTID'], -1],
           paint: {'line-color': '#ffb547', 'line-width': 3}});
-        const rows = d3.select('#legend').selectAll('.legend-row')
-          .data(classes).join('div').attr('class', 'legend-row');
-        rows.append('span').attr('class', 'swatch').style('background-color', d => d.color);
-        rows.append('span').text(d => d.label);
+        // const rows = d3.select('#legend').selectAll('.legend-row')
+        //   .data(classes).join('div').attr('class', 'legend-row');
+        // rows.append('span').attr('class', 'swatch').style('background-color', d => d.color);
+        // rows.append('span').text(d => d.label);
+        renderLegend(indicators.pop2020);
+        // Switching the indicator only changes fill color, so hover/pin/search fading still works.
+        document.querySelectorAll('input[name="indicator"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                const indicator = indicators[radio.value];
+                map.setPaintProperty('county-fill', 'fill-color', fillExpression(indicator));
+                renderLegend(indicator);
+            });
+        });
 
         // 2. Shared input: a filter result, a temporary preview, or a pinned county.
         let matchingCounties = counties;
